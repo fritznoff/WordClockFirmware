@@ -1,27 +1,10 @@
 
-
-
-
-//REWORK THIS SHIT.
-
-
-
 String serialBuffer = "";
 
-boolean isInPipe = true;
-
 void serial(){
-  if(isInPipe) serialPipe();
   serialRead();
 }
 
-
-void serialPipe(){
-  while(Serial1.available()){
-    Serial.write(Serial1.read());
-  }
-  //ingoing Serial traffic is managed by the serialRead method
-}
 
 
 void serialRead(){
@@ -29,10 +12,6 @@ void serialRead(){
     
     char inChar = Serial.read();
     serialBuffer.concat(inChar);
-    
-    if(isInPipe){
-      Serial1.write(inChar);
-    }
     
     //Check for 'carriage return' as an end of a command
     if(inChar == '\r') {
@@ -43,18 +22,7 @@ void serialRead(){
 }
 
 void serialParse(String theString){
-  if(isInPipe) {
-    if(theString.startsWith("cmd exit")) {
-      isInPipe = false;
-      //exitCommandMode();
-    }
-  }
-  else {
-    if(theString.startsWith("cmd enter")){
-      isInPipe = true;
-      //enterCommandMode();
-    } 
-    else if(theString.startsWith("get time")){
+    if(theString.startsWith("get time")){
       time_t foobar = WiFly.getTime();
       if(foobar > 100000)
         setTime(foobar);
@@ -102,13 +70,10 @@ void serialParse(String theString){
     else if(theString.startsWith("help")){
       Serial.print("\n\rAvailable Commands:\n\r");
       Serial.print("help - show this help message\n\r");
-      Serial.print("cmd enter - enter command mode\n\r");
-      Serial.print("cmd exit - exit command mode\n\r");
       Serial.print("get time - get and show current time\n\r");
       Serial.print("set time <time_t> - force to display <time_t>; pass 0 to reset\n\r");
       Serial.print("set brightness <0-255> - set the brightness from 0 to 255\n\r");
     }
-  }
 }
 
 
