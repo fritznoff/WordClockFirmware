@@ -1,5 +1,11 @@
 #define EE_WC_BR 0x20
 
+const uint16_t log_pwm[32] =
+{
+    0, 1, 2, 2, 2, 3, 3, 4, 5, 6, 7, 8, 10, 11, 13, 16, 19, 23,
+    27, 32, 38, 45, 54, 64, 76, 91, 108, 128, 152, 181, 215, 255
+};
+
 uint16_t currentStates[8] = { 0 };
 uint16_t newStates[8] = { 0 };
 uint8_t wordClockBrightness = 0;
@@ -51,13 +57,7 @@ void testPwm() {
 
 /*
 setLed sets the states of the leds (led) of a specific ic (ic) 
-
-
-
-
-
 */
-
 void setLed (uint8_t ic, uint16_t led, uint16_t pwm) {
   uint8_t pwm0 = 0b00000010;
   uint8_t pwm1 = 0b00000011;
@@ -255,17 +255,24 @@ void wordClockDisplayTime(time_t time) {
     for(uint8_t i=0;i<8;i++) {
       setLed(i, currentStates[i], fadeOut[i]);
     }
-    for(uint8_t i=wordClockBrightness;i>0;i--) {
-      setPwm(i-1, 0x01);
-      delay(10);
+    for(uint8_t i=32;i>0;i--) {
+      if(log_pwm[i-1] > wordClockBrightness) {
+        continue;
+      }
+      setPwm(log_pwm[i-1], 0x01);
+      delay(25);
     }
     for(uint8_t i=0;i<8;i++) {
       setLed(i, newStates[i], fadeIn[i]);
       currentStates[i] = newStates[i];
     }
-    for(uint8_t i=0;i<wordClockBrightness;i++) {
-      setPwm(i, 0x01);
-      delay(10);
+    for(uint8_t i=0;i<=31;i++) {
+      if(log_pwm[i] > wordClockBrightness) {
+        setPwm(wordClockBrightness, 0x01);
+        break;
+      }
+      setPwm(log_pwm[i], 0x01);
+      delay(25);
     }
   }
   else {
