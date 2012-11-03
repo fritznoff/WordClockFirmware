@@ -1,6 +1,9 @@
+#include <avr/pgmspace.h>
+
 #define EE_WC_BR 0x20
 
-const uint16_t log_pwm[32] =
+//why uint16_t?
+const uint16_t log_pwm[32] PROGMEM =
 {
     0, 1, 2, 2, 2, 3, 3, 4, 5, 6, 7, 8, 10, 11, 13, 16, 19, 23,
     27, 32, 38, 45, 54, 64, 76, 91, 108, 128, 152, 181, 215, 255
@@ -256,10 +259,10 @@ void wordClockDisplayTime(time_t time) {
       setLed(i, currentStates[i], fadeOut[i]);
     }
     for(uint8_t i=32;i>0;i--) {
-      if(log_pwm[i-1] > wordClockBrightness) {
+      if(pgm_read_word_near(&log_pwm[i-1]) > wordClockBrightness) {
         continue;
       }
-      setPwm(log_pwm[i-1], 0x01);
+      setPwm(pgm_read_word_near(&log_pwm[i-1]), 0x01);
       delay(25);
     }
     for(uint8_t i=0;i<8;i++) {
@@ -267,11 +270,11 @@ void wordClockDisplayTime(time_t time) {
       currentStates[i] = newStates[i];
     }
     for(uint8_t i=0;i<=31;i++) {
-      if(log_pwm[i] > wordClockBrightness) {
+      if(pgm_read_word_near(&log_pwm[i]) > wordClockBrightness) {
         setPwm(wordClockBrightness, 0x01);
         break;
       }
-      setPwm(log_pwm[i], 0x01);
+      setPwm(pgm_read_word_near(&log_pwm[i]), 0x01);
       delay(25);
     }
   }
@@ -381,3 +384,10 @@ void showZWOELF() {
   newStates[1] ^= 0b0000000000100000;
   newStates[5] ^= 0b0011110000000000;
 }
+
+/*
+  there are actually 7bit needed, to describe the position of each led
+  3bit are the ic identifier and 4bit describe the actual led connected to the ic 
+
+  therefore we need a matrix of 11x11 bits
+*/
