@@ -2,6 +2,8 @@
 
 #define EE_WC_BR 0x20
 
+
+
 /*
   there are actually 7bit needed, to describe the position of each led
   3bit are the ic identifier and 4bit describe the actual led connected to the ic 
@@ -54,36 +56,50 @@ struct clock_description {
 
 
 
+
+
+void wordClockDisplay(clock_description cdesc){
+  uint8_t state[8][4] = 0; 
+  
+  for(uint8_t row = 0; row < 10; row++){
+    for(uint8_t col = 0; col < 11; col++){
+      //FILL THE STATES
+      
+      
+    
+    
+    }
+  }
+  
+  for(uint8_t ic = 0; ic < 8; ic++){
+    for(uint8_t reg = 0; reg < 4; reg++){
+      Wire.beginTransmission(address);
+      Wire.write(ls[i]);
+      Wire.write(state[ic][reg]);
+      Wire.endTransmission();
+    }
+  }
+}
+
+
+
 const uint8_t log_pwm[32] PROGMEM =
 {
     0, 1, 2, 2, 2, 3, 3, 4, 5, 6, 7, 8, 10, 11, 13, 16, 19, 23,
     27, 32, 38, 45, 54, 64, 76, 91, 108, 128, 152, 181, 215, 255
 };
 
-uint16_t currentStates[8] = { 0 };
-uint16_t newStates[8] = { 0 };
-uint8_t wordClockBrightness = 0;
+
 
 void wordClockInit() {
- 
   Wire.begin();
-  
   delay(200);
   
-  for(uint8_t i=0; i<8; i++) {
-    setLed(i, currentStates[i], 0x00);
-  }
+  
   wordClockBrightness = eeprom_read_byte((uint8_t *) EE_WC_BR); eeprom_busy_wait();
   setPwm(wordClockBrightness, 0x00);
 }
 
-void testAll() {
-  setPwm(255, 0x00);
-  for(uint8_t i=0; i<8; i++) {
-    setLed(i, 0b1111111111111111, 0x00);
-  }
-  delay(5000);
-}
 
 void wordClockSetBrightness(uint8_t brightness){
   wordClockBrightness = brightness;
@@ -94,19 +110,7 @@ void wordClockSaveBrightness(){
   eeprom_write_byte((uint8_t *)  EE_WC_BR, wordClockBrightness);  eeprom_busy_wait();
 }
 
-void testPwm() {
-  setPwm(0, 0x00);
-  setPwm(255, 0x01);
-  for(uint8_t i=0;i<8;i++) {
-    setLed(i, 0xFFFF, 0b1010101010101010);
-  }
-  for(uint8_t i=0;i<255;i++) {
-    setPwm(i,0x00);
-    setPwm(254-i, 0x01);
-    delay(20);
-  }
-  delay(2000);
-}
+
 
 
 /*
