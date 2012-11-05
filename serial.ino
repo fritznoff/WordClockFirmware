@@ -59,10 +59,10 @@ void serialParse(String theString){
       }
     }
     else if(theString.startsWith("test leds")) {
-      testAll();
+
     }
     else if(theString.startsWith("test pwm")) {
-      testPwm();
+
     }
     else if(theString.startsWith("save")) {
       wordClockSaveBrightness();

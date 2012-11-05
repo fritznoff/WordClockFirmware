@@ -2,6 +2,9 @@
 
 #define EE_WC_BR 0x20
 
+#define PWM0 0x00000001
+#define PWM1 0x00000010
+
 
 
 /*
@@ -29,7 +32,33 @@
   *                                   *    
 */
 
-const uint8_t led_map[10][11] PROGMEM = {
+const uint8_t show_es[] PROGMEM = {0x00, 0x01};
+const uint8_t show_ist[] PROGMEM = {0x03, 0x04};
+const uint8_t show_vor[] PROGMEM = {0x36, 0x37, 0x38};
+const uint8_t show_nach[] PROGMEM = {0x32, 0x33, 0x34, 0x35};
+const uint8_t show_uhr[] PROGMEM = {0x98, 0x99, 0x9A};
+const uint8_t show_fuenf[] PROGMEM = {0x07, 0x08, 0x09, 0x0A};
+const uint8_t show_zehn[] PROGMEM = {0x10, 0x11, 0x12, 0x13};
+const uint8_t show_viertel[] PROGMEM = {0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2A};
+const uint8_t show_zwanzig[] PROGMEM = {0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A};
+const uint8_t show_halb[] PROGMEM = {0x40, 0x41, 0x42, 0x43};
+const uint8_t show_hour_ein[] PROGMEM = {};
+const uint8_t show_hour_eins[] PROGMEM = {};
+const uint8_t show_hour_zwei[] PROGMEM = {};
+const uint8_t show_hour_drei[] PROGMEM = {};
+const uint8_t show_hour_vier[] PROGMEM = {};
+const uint8_t show_hour_fuenf[] PROGMEM = {};
+const uint8_t show_hour_sechs[] PROGMEM = {};
+const uint8_t show_hour_sieben[] PROGMEM = {};
+const uint8_t show_hour_acht[] PROGMEM = {};
+const uint8_t show_hour_neun[] PROGMEM = {};
+const uint8_t show_hour_zehn[] PROGMEM = {};
+const uint8_t show_hour_elf[] PROGMEM = {};
+const uint8_t show_hour_zwoelf[] PROGMEM = {};
+
+
+
+const uint8_t led_map_matrix[10][11] PROGMEM = {
   {0x0E, 0x0D, 0x0C, 0x0B, 0x0A, 0x09, 0x44, 0x43, 0x42, 0x41, 0x40},
   {0x07, 0x06, 0x05, 0x04, 0x03, 0x08, 0x4A, 0x49, 0x48, 0x46, 0x47},
   {0x00, 0x01, 0x02, 0x1E, 0x1D, 0x1C, 0x4D, 0x4E, 0x52, 0x51, 0x50},
@@ -42,12 +71,12 @@ const uint8_t led_map[10][11] PROGMEM = {
   {0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x7A, 0x7B, 0x7C, 0x7D, 0x7E}
 };
 
-const uint8_t led_map_corners[] PROGMEM = {
+const uint8_t led_map_dots[] PROGMEM = {
   0x0F, 0x4F, 0x7F, 0x3F
 };
 
 
-struct clock_description {
+struct Display {
   uint8_t led_matrix[10][11];
   uint8_t led_dots[4];
   uint8_t led_pwm0;
@@ -55,26 +84,39 @@ struct clock_description {
 };
 
 
-
-
-
-void wordClockDisplay(clock_description cdesc){
-  uint8_t state[8][4] = 0; 
+void wordClockDisplay(struct Display disp){
+  uint8_t state[8][4] = {0}; 
   
   for(uint8_t row = 0; row < 10; row++){
     for(uint8_t col = 0; col < 11; col++){
-      //FILL THE STATES
+      uint8_t mapping = pgm_read_byte(&led_map_matrix[row][col]);
+      uint8_t ic = (mapping & 0b01110000) >> 4;
+      uint8_t led = mapping & 0b00001111;
       
+      uint8_t reg = led / 4;
+      uint8_t regPos = led % 4;
       
-    
-    
+      state[ic][reg] &= ~(0b00000011 << 2*regPos);
+      state[ic][reg] |= disp.led_matrix[row][col] << 2*regPos;
     }
+  }
+  
+  for(uint8_t dot = 0; dot < 4; dot++){
+    uint8_t mapping = pgm_read_byte(&led_map_dots[dot]);
+    uint8_t ic = (mapping & 0b01110000) >> 4;
+    uint8_t led = mapping & 0b00001111;
+    
+    uint8_t reg = led / 4;
+    uint8_t regPos = led % 4;
+ 
+    state[ic][reg] &= ~(0b00000011 << 2*regPos);
+    state[ic][reg] |= disp.led_dots[dot] << 2*regPos;
   }
   
   for(uint8_t ic = 0; ic < 8; ic++){
     for(uint8_t reg = 0; reg < 4; reg++){
-      Wire.beginTransmission(address);
-      Wire.write(ls[i]);
+      Wire.beginTransmission(ic);
+      //Wire.write(ls[i]);
       Wire.write(state[ic][reg]);
       Wire.endTransmission();
     }
@@ -96,74 +138,22 @@ void wordClockInit() {
   delay(200);
   
   
-  wordClockBrightness = eeprom_read_byte((uint8_t *) EE_WC_BR); eeprom_busy_wait();
-  setPwm(wordClockBrightness, 0x00);
+  //wordClockBrightness = eeprom_read_byte((uint8_t *) EE_WC_BR); eeprom_busy_wait();
+  //setPwm(wordClockBrightness, 0x00);
 }
 
 
 void wordClockSetBrightness(uint8_t brightness){
-  wordClockBrightness = brightness;
-  setPwm(wordClockBrightness, 0x00);
+  //wordClockBrightness = brightness;
+  //setPwm(wordClockBrightness, 0x00);
 }
 
 void wordClockSaveBrightness(){
-  eeprom_write_byte((uint8_t *)  EE_WC_BR, wordClockBrightness);  eeprom_busy_wait();
+  //eeprom_write_byte((uint8_t *)  EE_WC_BR, wordClockBrightness);  eeprom_busy_wait();
 }
 
 
 
-
-/*
-setLed sets the states of the leds (led) of a specific ic (ic) 
-*/
-void setLed (uint8_t ic, uint16_t led, uint16_t pwm) {
-  uint8_t pwm0 = 0b00000010;
-  uint8_t pwm1 = 0b00000011;
-  uint8_t off = 0b00000001;
-  
-  uint8_t addressMask = 0b01100000;
-  uint8_t address = addressMask ^ ic;
-  
-  uint8_t ls[] = { 0b00000110, 0b00000111, 0b00001000, 0b00001001 };
-  
-  uint8_t leds[] = { 0b00000000, 0b00000000, 0b00000000, 0b00000000 };
-  
-  for (uint8_t i=0; i<4; i++) {
-    uint16_t regMask = 0b0000000000001111;
-    regMask = regMask << (i*4);
-    
-    uint16_t active = led & regMask;
-    active = active >> (i*4);
-    
-    uint16_t pwmMode = pwm & regMask;
-    pwmMode = pwmMode >> (i*4);
-    
-    for (uint8_t j=0; j<4; j++) {
-      uint8_t ledMask = 0b00000001;
-      ledMask = ledMask << j;   
-      if ((ledMask & active) > 0) {
-        if((ledMask & pwmMode) > 0){
-          leds[i] = leds[i] ^ (pwm1 << (2*j));
-        }
-        else{
-          leds[i] = leds[i] ^ (pwm0 << (2*j));
-        }
-      }
-      else {
-        leds[i] = leds[i] ^ (off << (2*j));
-      }
-    }
-  }
- 
-  for (uint8_t i=0; i<4; i++) {
-    Wire.beginTransmission(address);
-    
-    Wire.write(ls[i]);
-    Wire.write(leds[i]);
-    
-    Wire.endTransmission();
-  }
-}
 
 void setPwm (uint8_t brightness, uint8_t pwmNo) {
   uint8_t addressMask = 0b01100000;
@@ -178,21 +168,14 @@ void setPwm (uint8_t brightness, uint8_t pwmNo) {
     uint8_t address = addressMask ^ i;
     
     Wire.beginTransmission(address);
-      
     Wire.write(pwmReg);
     Wire.write(255-brightness);
-      
     Wire.endTransmission();
   }
 }
 
 void wordClockDisplayTime(time_t time) {
-  for(uint8_t i=0; i<8; i++) {
-    newStates[i] = 0;
-  }
-  
-  showES();
-  showIST();
+  struct Display timeDisp;
   
   
   uint8_t minutes = minute(time);
@@ -202,95 +185,98 @@ void wordClockDisplayTime(time_t time) {
   uint8_t dots = minutes % 5;
   minutes -= dots;
   
-  switch (dots) {
-    case 0: break;
-    case 4: newStates[3] ^= 0b1000000000000000;
-    case 3: newStates[7] ^= 0b1000000000000000;
-    case 2: newStates[4] ^= 0b1000000000000000;
-    case 1: newStates[0] ^= 0b1000000000000000; break;
-  }
+  
+  setLedDisplayMatrix(&timeDisp, PWM0, show_es, sizeof(show_es));
+  setLedDisplayMatrix(&timeDisp, PWM0, show_ist, sizeof(show_ist));
   
   switch (hours) {
-    case 0: showZWOELF(); break;
+    case 0: setLedDisplayMatrix(&timeDisp, PWM0, show_hour_zwoelf, sizeof(show_hour_zwoelf)); break;
     case 1: {
-      if(minutes != 0) showEINS();
-      else showEIN();
+      if(minutes != 0) setLedDisplayMatrix(&timeDisp, PWM0, show_hour_eins, sizeof(show_hour_eins));
+      else setLedDisplayMatrix(&timeDisp, PWM0, show_hour_ein, sizeof(show_hour_ein));
     } break;
-    case 2: showZWEI(); break;
-    case 3: showDREI(); break;
-    case 4: showVIER(); break;
-    case 5: showHourFUENF(); break;
-    case 6: showSECHS(); break;
-    case 7: showSIEBEN(); break; 
-    case 8: showACHT(); break;
-    case 9: showNEUN(); break;
-    case 10: showHourZEHN(); break;
-    case 11: showELF(); break;
+    case 2: setLedDisplayMatrix(&timeDisp, PWM0, show_hour_zwei, sizeof(show_hour_zwei)); break;
+    case 3: setLedDisplayMatrix(&timeDisp, PWM0, show_hour_drei, sizeof(show_hour_drei)); break;
+    case 4: setLedDisplayMatrix(&timeDisp, PWM0, show_hour_vier, sizeof(show_hour_vier)); break;
+    case 5: setLedDisplayMatrix(&timeDisp, PWM0, show_hour_fuenf, sizeof(show_hour_fuenf)); break;
+    case 6: setLedDisplayMatrix(&timeDisp, PWM0, show_hour_sechs, sizeof(show_hour_sechs)); break;
+    case 7: setLedDisplayMatrix(&timeDisp, PWM0, show_hour_sieben, sizeof(show_hour_sieben)); break; 
+    case 8: setLedDisplayMatrix(&timeDisp, PWM0, show_hour_acht, sizeof(show_hour_acht)); break;
+    case 9: setLedDisplayMatrix(&timeDisp, PWM0, show_hour_neun, sizeof(show_hour_neun)); break;
+    case 10: setLedDisplayMatrix(&timeDisp, PWM0, show_hour_zehn, sizeof(show_hour_zehn)); break;
+    case 11: setLedDisplayMatrix(&timeDisp, PWM0, show_hour_elf, sizeof(show_hour_elf)); break;
+    break;
   }
   
   switch (minutes) {
-    case 0: showUHR(); break;
+    case 0: setLedDisplayMatrix(&timeDisp, PWM0, show_uhr, sizeof(show_uhr)); break;
     case 5: {
-      showMinuteFUENF();
-      showNACH();
+      setLedDisplayMatrix(&timeDisp, PWM0, show_fuenf, sizeof(show_fuenf));
+      setLedDisplayMatrix(&timeDisp, PWM0, show_nach, sizeof(show_nach));
       break;
     }
     case 10: {
-      showMinuteZEHN();
-      showNACH();
+      setLedDisplayMatrix(&timeDisp, PWM0, show_zehn, sizeof(show_zehn));
+      setLedDisplayMatrix(&timeDisp, PWM0, show_nach, sizeof(show_nach));
       break;
     }
     case 15: {
-      showVIERTEL();
-      showNACH();
+      setLedDisplayMatrix(&timeDisp, PWM0, show_viertel, sizeof(show_viertel));
+      setLedDisplayMatrix(&timeDisp, PWM0, show_nach, sizeof(show_nach));
       break;
     }
     case 20: {
-      showZWANZIG();
-      showNACH();
+      setLedDisplayMatrix(&timeDisp, PWM0, show_zwanzig, sizeof(show_zwanzig));
+      setLedDisplayMatrix(&timeDisp, PWM0, show_nach, sizeof(show_nach));
       break;
     }
     case 25: {
-      showMinuteFUENF();
-      showVOR();
-      showHALB();
+      setLedDisplayMatrix(&timeDisp, PWM0, show_fuenf, sizeof(show_fuenf));
+      setLedDisplayMatrix(&timeDisp, PWM0, show_vor, sizeof(show_vor));
+      setLedDisplayMatrix(&timeDisp, PWM0, show_halb, sizeof(show_halb));
       break;
     }
-    case 30: showHALB(); break;
+    case 30: setLedDisplayMatrix(&timeDisp, PWM0, show_halb, sizeof(show_halb)); break;
     case 35: {
-      showMinuteFUENF();
-      showNACH();
-      showHALB();
+      setLedDisplayMatrix(&timeDisp, PWM0, show_fuenf, sizeof(show_fuenf));
+      setLedDisplayMatrix(&timeDisp, PWM0, show_nach, sizeof(show_nach));
+      setLedDisplayMatrix(&timeDisp, PWM0, show_halb, sizeof(show_halb));
       break;
     }
     case 40: {
-      showZWANZIG();
-      showVOR();
+      setLedDisplayMatrix(&timeDisp, PWM0, show_zwanzig, sizeof(show_zwanzig));
+      setLedDisplayMatrix(&timeDisp, PWM0, show_vor, sizeof(show_vor));
       break;
     }
     case 45: {
-      showVIERTEL();
-      showVOR();
+      setLedDisplayMatrix(&timeDisp, PWM0, show_viertel, sizeof(show_viertel));
+      setLedDisplayMatrix(&timeDisp, PWM0, show_vor, sizeof(show_vor));
       break;
     }
     case 50: {
-      showMinuteZEHN();
-      showVOR();
+      setLedDisplayMatrix(&timeDisp, PWM0, show_zehn, sizeof(show_zehn));
+      setLedDisplayMatrix(&timeDisp, PWM0, show_vor, sizeof(show_vor));
       break;
     }
     case 55: {
-      showMinuteFUENF();
-      showVOR();
+      setLedDisplayMatrix(&timeDisp, PWM0, show_fuenf, sizeof(show_fuenf));
+      setLedDisplayMatrix(&timeDisp, PWM0, show_vor, sizeof(show_vor));
       break;
     }
   }
   
+  switch (dots) {
+    case 0: break;
+    case 4: break;
+    case 3: break;
+    case 2: break;
+    case 1: break;
+  }
   
-  uint16_t diff[8] = { 0 };
-  uint16_t fadeIn[8] = { 0 };
-  uint16_t fadeOut[8] = { 0 };
+  
   bool fading = false;
   
+  /*
   for(uint8_t i=0; i<8; i++) {
     diff[i] = newStates[i] ^ currentStates[i];
     fadeOut[i] = diff[i] & currentStates[i];
@@ -298,6 +284,7 @@ void wordClockDisplayTime(time_t time) {
     if(diff[i] != 0)
       fading = true;
   }
+  */
   
   if(fading) {    
     //Debug-Ausgabe
@@ -310,6 +297,7 @@ void wordClockDisplayTime(time_t time) {
         Serial.print("fadeIn["); Serial.print(i); Serial.print("]:\t\t"); Serial.print(fadeIn[i], BIN); Serial.print("\r\n");
       }*/
 
+    /*
     for(uint8_t i=0;i<8;i++) {
       setLed(i, currentStates[i], fadeOut[i]);
     }
@@ -332,112 +320,24 @@ void wordClockDisplayTime(time_t time) {
       setPwm(pgm_read_byte_near(&log_pwm[i]), 0x01);
       delay(25);
     }
+    */
   }
   else {
-    for(uint8_t i=0;i<8;i++) {
-      setLed(i, newStates[i], 0x0000);
-    }
+    wordClockDisplay(timeDisp);
   }
+  
 }
 
-void showES() {
-  newStates[0] ^= 0b0110000000000000;
+//generic led manipulation 
+void setLedDisplayMatrix(struct Display * disp, uint8_t value, const uint8_t mani[], uint8_t manisize){
+  for(uint8_t i = 0; i < manisize; i++){
+    uint8_t led = pgm_read_byte(&mani[i]);
+    uint8_t row = (led & 0b11110000) >> 4;
+    uint8_t col = led & 0b00001111;
+    disp->led_matrix[row][col] = value;
+  }  
 }
 
-void showIST() {
-  newStates[0] ^= 0b0000111000000000;
-}
 
-void showVOR() {
-  newStates[5] ^= 0b0000000000111000;
-}
-
-void showNACH() {
-  newStates[1] ^= 0b0000111100000000;
-}
-
-void showHALB() {
-  newStates[1] ^= 0b0000000000001111;
-}
-
-void showUHR() {
-  newStates[7] ^= 0b0111000000000000;
-}
-
-void showHourFUENF() {
-  newStates[6] ^= 0b0000001111000000;
-}
-
-void showMinuteFUENF() {
-  newStates[4] ^= 0b0000000000001111;
-}
-
-void showHourZEHN() {
-  newStates[3] ^= 0b0000100000000000;
-  newStates[7] ^= 0b0000000000111000;
-}
-
-void showMinuteZEHN() {
-  newStates[0] ^= 0b0000000011110000;
-}
-
-void showVIERTEL() {
-  newStates[1] ^= 0b0011000000000000;
-  newStates[4] ^= 0b0110000000000000;
-  newStates[5] ^= 0b0000000000000111;
-}
-
-void showZWANZIG() {
-  newStates[0] ^= 0b0000000100001000;
-  newStates[4] ^= 0b0000011111000000;
-}
-
-void showEIN() {
-  newStates[2] ^= 0b0001110000000000;
-}
-
-void showEINS() {
-  newStates[2] ^= 0b0001111000000000;
-}
-
-void showZWEI() {
-  newStates[2] ^= 0b0111100000000000;
-}
-
-void showDREI() {
-  newStates[2] ^= 0b0000000001111000;
-}
-
-void showVIER() {
-  newStates[6] ^= 0b0100000000000000;
-  newStates[7] ^= 0b0000000000000111;
-}
-
-void showSECHS() {
-  newStates[3] ^= 0b0000000000111110;
-}
-
-void showSIEBEN() {
-  newStates[2] ^= 0b0000001000000000;
-  newStates[6] ^= 0b0000000000011111;
-}
-
-void showACHT() {
-  newStates[3] ^= 0b0000011101000000;
-}
-
-void showNEUN() {
-  newStates[3] ^= 0b0111000000000000;
-  newStates[6] ^= 0b0010000000000000;
-}
-
-void showELF() {
-  newStates[2] ^= 0b0000000000000111;
-}
-
-void showZWOELF() {
-  newStates[1] ^= 0b0000000000100000;
-  newStates[5] ^= 0b0011110000000000;
-}
 
 
