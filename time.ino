@@ -14,6 +14,7 @@ time_t getTime(){
     return foo;
   }
   WiFly.SendInquirySimple("time\r");
+  delay(500);
   time_t ret_time = WiFly.getTime();
   if(ret_time > 100000000){
     Serial.print("ardui time: ");
@@ -66,7 +67,7 @@ void timeLoop() {
       overwriteTime = utc;
       
     time_t local = MEZ.toLocal(utc);
-    serialClockDisplayTime(global_utc);
+    serialClockDisplayTime(local);
     wordClockDisplayTime(local);
   } 
 }
