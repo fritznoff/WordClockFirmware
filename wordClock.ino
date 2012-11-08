@@ -2,8 +2,10 @@
 
 #define EE_WC_BR 0x20
 
-#define PWM0 0x00000001
-#define PWM1 0x00000010
+#define ON   0x00000000
+#define OFF  0x00000001
+#define PWM0 0x00000010
+#define PWM1 0x00000011
 
 
 
