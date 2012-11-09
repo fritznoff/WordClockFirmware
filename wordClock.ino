@@ -183,11 +183,10 @@ void wordClockDisplay(struct Display disp){
 void wordClockInit() {
   Wire.begin();
   delay(200);
-  Display disp;
-  
-  memset(disp.led_matrix, OFF, sizeof(disp.led_matrix[0][0]) * 11 * 10);
-  memset(disp.led_dots, OFF, sizeof(disp.led_dots[0]) * 4);
-  wordClockDisplay(disp);
+
+  memset(currentDisplay.led_matrix, OFF, sizeof(currentDisplay.led_matrix[0][0]) * 11 * 10);
+  memset(currentDisplay.led_dots, OFF, sizeof(currentDisplay.led_dots[0]) * 4);
+  wordClockDisplay(currentDisplay);
   //wordClockBrightness = eeprom_read_byte((uint8_t *) EE_WC_BR); eeprom_busy_wait();
   setPwm(wordClockBrightness, PWM0);
 }
@@ -372,6 +371,18 @@ void testWords() {
   while(1) {
     wordClockDisplayTime(i);
     i++;
-    delay(10);
+    delay(5);
+  }
+}
+
+void testMatrix() {
+  memset(currentDisplay.led_matrix, OFF, sizeof(currentDisplay.led_matrix[0][0]) * 11 * 10);
+  memset(currentDisplay.led_dots, OFF, sizeof(currentDisplay.led_dots[0]) * 4);
+  for(uint8_t row = 0; row < 10; row++){
+    for(uint8_t col = 0; col < 11; col++){
+      currentDisplay.led_matrix[row][col] = ON;
+      wordClockDisplay(currentDisplay);
+      delay(100);
+    }
   }
 }

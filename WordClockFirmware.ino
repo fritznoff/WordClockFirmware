@@ -40,9 +40,6 @@ void setup()
   
   
   Serial.begin(9600);
-  
-  //delay only for debugging purposes
-  //delay(5000); 
 
   Serial.print("clockSoft v0.2\n\r");
   
