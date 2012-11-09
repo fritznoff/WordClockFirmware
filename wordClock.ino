@@ -2,12 +2,12 @@
 
 #define EE_WC_BR 0x20
 
-#define ON   0x00000000
-#define OFF  0x00000001
-#define PWM0 0x00000010
-#define PWM1 0x00000011
+#define ON   0b00000000
+#define OFF  0b00000001
+#define PWM0 0b00000010
+#define PWM1 0b00000011
 
-
+uint8_t wordClockBrightness = 255;
 
 /*
   there are actually 7bit needed, to describe the position of each led
@@ -77,14 +77,66 @@ const uint8_t led_map_dots[] PROGMEM = {
   0x0F, 0x4F, 0x7F, 0x3F
 };
 
+const uint8_t log_pwm[32] PROGMEM =
+{
+    0, 1, 2, 2, 2, 3, 3, 4, 5, 6, 7, 8, 10, 11, 13, 16, 19, 23,
+    27, 32, 38, 45, 54, 64, 76, 91, 108, 128, 152, 181, 215, 255
+};
 
 struct Display {
   uint8_t led_matrix[10][11];
   uint8_t led_dots[4];
   uint8_t led_pwm0;
   uint8_t led_pwm1;
-};
+} currentDisplay;
 
+struct Display fadeOut(struct Display currDisp, struct Display newDisp) {
+  Display resultDisp = currDisp;
+  for(uint8_t row = 0; row < 10; row++){
+    for(uint8_t col = 0; col < 11; col++){
+      if(currDisp.led_matrix[row][col] == PWM0 && newDisp.led_matrix[row][col] == OFF)
+        resultDisp.led_matrix[row][col] = PWM1;
+    }
+  }
+  for(uint8_t dot = 0; dot < 4; dot++) {
+    if(currDisp.led_dots[dot] == PWM0 && newDisp.led_dots[dot] == OFF)
+        resultDisp.led_dots[dot] = PWM1;
+  }
+  return resultDisp;
+}
+
+struct Display fadeIn(struct Display currDisp, struct Display newDisp) {
+  Display resultDisp = currDisp;
+  for(uint8_t row = 0; row < 10; row++){
+    for(uint8_t col = 0; col < 11; col++){
+      if(currDisp.led_matrix[row][col] == PWM0 && newDisp.led_matrix[row][col] == OFF)
+        resultDisp.led_matrix[row][col] = OFF;
+      if(currDisp.led_matrix[row][col] == OFF && newDisp.led_matrix[row][col] == PWM0)
+        resultDisp.led_matrix[row][col] = PWM1;
+    }
+  }
+  for(uint8_t dot = 0; dot < 4; dot++) {
+    if(currDisp.led_dots[dot] == PWM0 && newDisp.led_dots[dot] == OFF)
+        resultDisp.led_dots[dot] = OFF;
+    if(currDisp.led_dots[dot] == OFF && newDisp.led_dots[dot] == PWM0)
+        resultDisp.led_dots[dot] = PWM1;
+  }
+  return resultDisp;
+}
+
+boolean needsFading(struct Display currDisp, struct Display newDisp) {
+  for(uint8_t row = 0; row < 10; row++){
+    for(uint8_t col = 0; col < 11; col++){
+      if(currDisp.led_matrix[row][col] != newDisp.led_matrix[row][col])
+        return true;
+    }
+  }
+  for(uint8_t dot = 0; dot < 4; dot++) {
+    if(currDisp.led_dots[dot] != newDisp.led_dots[dot])
+        return true;
+  }
+  return false;
+}
 
 void wordClockDisplay(struct Display disp){
   uint8_t state[8][4] = {0}; 
@@ -99,7 +151,7 @@ void wordClockDisplay(struct Display disp){
       uint8_t regPos = led % 4;
       
       state[ic][reg] &= ~(0b00000011 << 2*regPos);
-      state[ic][reg] |= disp.led_matrix[row][col] << 2*regPos;
+      state[ic][reg] |= (disp.led_matrix[row][col] << 2*regPos);
     }
   }
   
@@ -112,36 +164,32 @@ void wordClockDisplay(struct Display disp){
     uint8_t regPos = led % 4;
  
     state[ic][reg] &= ~(0b00000011 << 2*regPos);
-    state[ic][reg] |= disp.led_dots[dot] << 2*regPos;
+    state[ic][reg] |= (disp.led_dots[dot] << 2*regPos);
   }
   
+  uint8_t ls[] = { 0b00000110, 0b00000111, 0b00001000, 0b00001001 };
+
   for(uint8_t ic = 0; ic < 8; ic++){
+    uint8_t address = 0b01100000 ^ ic;
     for(uint8_t reg = 0; reg < 4; reg++){
-      Wire.beginTransmission(ic);
-      //Wire.write(ls[i]);
+      Wire.beginTransmission(address);
+      Wire.write(ls[reg]);
       Wire.write(state[ic][reg]);
       Wire.endTransmission();
     }
   }
 }
 
-
-
-const uint8_t log_pwm[32] PROGMEM =
-{
-    0, 1, 2, 2, 2, 3, 3, 4, 5, 6, 7, 8, 10, 11, 13, 16, 19, 23,
-    27, 32, 38, 45, 54, 64, 76, 91, 108, 128, 152, 181, 215, 255
-};
-
-
-
 void wordClockInit() {
   Wire.begin();
   delay(200);
+  Display disp;
   
-  
+  memset(disp.led_matrix, OFF, sizeof(disp.led_matrix[0][0]) * 11 * 10);
+  memset(disp.led_dots, OFF, sizeof(disp.led_dots[0]) * 4);
+  wordClockDisplay(disp);
   //wordClockBrightness = eeprom_read_byte((uint8_t *) EE_WC_BR); eeprom_busy_wait();
-  //setPwm(wordClockBrightness, 0x00);
+  setPwm(wordClockBrightness, PWM0);
 }
 
 
@@ -161,9 +209,9 @@ void setPwm (uint8_t brightness, uint8_t pwmNo) {
   uint8_t addressMask = 0b01100000;
   
   uint8_t pwmReg;
-  if(pwmNo == 0)
+  if(pwmNo == PWM0)
     pwmReg = 0b00000011;
-  else if(pwmNo == 1)
+  else if(pwmNo == PWM1)
     pwmReg = 0b00000101;
   
   for (uint8_t i=0; i<8; i++) {
@@ -179,6 +227,8 @@ void setPwm (uint8_t brightness, uint8_t pwmNo) {
 void wordClockDisplayTime(time_t time) {
   struct Display timeDisp;
   
+  memset(timeDisp.led_matrix, OFF, sizeof(timeDisp.led_matrix[0][0]) * 11 * 10);
+  memset(timeDisp.led_dots, OFF, sizeof(timeDisp.led_dots[0]) * 4);
   
   uint8_t minutes = minute(time);
   uint8_t hours = hour(time);
@@ -268,66 +318,43 @@ void wordClockDisplayTime(time_t time) {
   }
   
   switch (dots) {
-    case 0: break;
-    case 4: break;
-    case 3: break;
-    case 2: break;
-    case 1: break;
+    case 0: memset(timeDisp.led_dots, OFF, sizeof(timeDisp.led_dots[0]) * 4); break;
+    case 4: timeDisp.led_dots[3] = PWM0;
+    case 3: timeDisp.led_dots[2] = PWM0;
+    case 2: timeDisp.led_dots[1] = PWM0;
+    case 1: timeDisp.led_dots[0] = PWM0; break;
   }
   
   
-  bool fading = false;
+  boolean fading = needsFading(currentDisplay, timeDisp);
   
-  /*
-  for(uint8_t i=0; i<8; i++) {
-    diff[i] = newStates[i] ^ currentStates[i];
-    fadeOut[i] = diff[i] & currentStates[i];
-    fadeIn[i] = diff[i] & newStates[i];
-    if(diff[i] != 0)
-      fading = true;
-  }
-  */
-  
-  if(fading) {    
-    //Debug-Ausgabe
-    /*Serial.print("fucking fading!\r\n");
-      for(uint8_t i=0;i<8;i++) {
-        Serial.print("currentStates["); Serial.print(i); Serial.print("]:\t"); Serial.print(currentStates[i], BIN); Serial.print("\r\n");
-        Serial.print("newStates["); Serial.print(i); Serial.print("]:\t\t"); Serial.print(newStates[i], BIN); Serial.print("\r\n");
-        Serial.print("diff["); Serial.print(i); Serial.print("]:\t\t"); Serial.print(diff[i], BIN); Serial.print("\r\n");
-        Serial.print("fadeOut["); Serial.print(i); Serial.print("]:\t\t"); Serial.print(fadeOut[i], BIN); Serial.print("\r\n");
-        Serial.print("fadeIn["); Serial.print(i); Serial.print("]:\t\t"); Serial.print(fadeIn[i], BIN); Serial.print("\r\n");
-      }*/
+  if(fading) {
+    Display fadeDisp = fadeOut(currentDisplay, timeDisp);
+    wordClockDisplay(fadeDisp);
 
-    /*
-    for(uint8_t i=0;i<8;i++) {
-      setLed(i, currentStates[i], fadeOut[i]);
-    }
     for(uint8_t i=32;i>0;i--) {
-      if(pgm_read_byte_near(&log_pwm[i-1]) > wordClockBrightness) {
+      if(pgm_read_byte(&log_pwm[i-1]) > wordClockBrightness) {
         continue;
       }
-      setPwm(pgm_read_byte_near(&log_pwm[i-1]), 0x01);
+      setPwm(pgm_read_byte(&log_pwm[i-1]), PWM1);
       delay(25);
     }
-    for(uint8_t i=0;i<8;i++) {
-      setLed(i, newStates[i], fadeIn[i]);
-      currentStates[i] = newStates[i];
-    }
+
+    fadeDisp = fadeIn(currentDisplay, timeDisp);
+    wordClockDisplay(fadeDisp);
+
     for(uint8_t i=0;i<=31;i++) {
-      if(pgm_read_byte_near(&log_pwm[i]) > wordClockBrightness) {
-        setPwm(wordClockBrightness, 0x01);
+      if(pgm_read_byte(&log_pwm[i]) > wordClockBrightness) {
+        setPwm(wordClockBrightness, PWM1);
         break;
       }
-      setPwm(pgm_read_byte_near(&log_pwm[i]), 0x01);
+      setPwm(pgm_read_byte(&log_pwm[i]), PWM1);
       delay(25);
     }
-    */
-  }
-  else {
-    wordClockDisplay(timeDisp);
   }
   
+  wordClockDisplay(timeDisp);
+  currentDisplay = timeDisp;
 }
 
 //generic led manipulation 
@@ -340,6 +367,11 @@ void setLedDisplayMatrix(struct Display * disp, uint8_t value, const uint8_t man
   }  
 }
 
-
-
-
+void testWords() {
+  uint16_t i = 0;
+  while(1) {
+    wordClockDisplayTime(i);
+    i++;
+    delay(10);
+  }
+}
