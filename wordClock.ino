@@ -336,7 +336,7 @@ void wordClockDisplayTime(time_t time) {
         continue;
       }
       setPwm(pgm_read_byte(&log_pwm[i-1]), PWM1);
-      delay(25);
+      delay(50);
     }
 
     fadeDisp = fadeIn(currentDisplay, timeDisp);
@@ -350,6 +350,8 @@ void wordClockDisplayTime(time_t time) {
       setPwm(pgm_read_byte(&log_pwm[i]), PWM1);
       delay(25);
     }
+    
+    setPwm(wordClockBrightness, PWM0);
   }
   
   wordClockDisplay(timeDisp);
@@ -380,7 +382,7 @@ void testMatrix() {
   memset(currentDisplay.led_dots, OFF, sizeof(currentDisplay.led_dots[0]) * 4);
   for(uint8_t row = 0; row < 10; row++){
     for(uint8_t col = 0; col < 11; col++){
-      currentDisplay.led_matrix[row][col] = ON;
+      currentDisplay.led_matrix[row][col] = PWM0;
       wordClockDisplay(currentDisplay);
       delay(100);
     }
