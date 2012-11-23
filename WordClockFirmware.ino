@@ -43,6 +43,9 @@ void setup()
 
   Serial.print("clockSoft v0.2\n\r");
   
+  //testMatrix();
+  //while(1);
+  
   while(!WiFly.begin()) delay(100);
   Serial.print("WiFly initialized!\n\r");
   
